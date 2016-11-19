@@ -9,6 +9,14 @@
 
 #include <vector>
 
+
+enum EvolutionAction
+{
+	MUTATE,
+	SWAP,
+	INVERT
+};
+
 class Individual
 {
 public:
@@ -16,12 +24,18 @@ public:
 	~Individual() {}
 
 	void CalculateMonth();
+	void CalculateFitness();
+	int GenerateRandom(int from, int to);
 
-	int m_currentFunds;
-	int m_currentEmployees;
+	bool operator<(const Individual &rhs) const;
+
+	int m_CurrentFunds;
+	int m_CurrentEmployees;
+	int m_Fitness;
    int m_MinimumFunds;
 	int m_AdditionalEmployees;
 
 	std::vector<Property> m_ownedProperties;
+	std::vector<std::pair<AllocationAction, Property>> m_WorkingAllocation;
 	std::vector<std::pair<AllocationAction, Property>> m_Allocation;
 };
