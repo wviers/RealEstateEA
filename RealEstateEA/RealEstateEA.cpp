@@ -11,14 +11,17 @@
 #include "Property.h"
 
 #include <algorithm>
+#include <assert.h>
 #include <random>
 #include <vector>
 
 //Main func declarations
 void CalculateMonth(std::vector<Individual>& population);
-void EvolvePopulation(std::vector<Individual>& population);
-int GenerateRandom(int from, int to);
+void EvolvePopulation(std::vector<Individual>& population, std::mt19937& generator);
+int GenerateRandom(int from, int to, std::mt19937& generator);
 void InitializeEnvironmentProperties(std::vector<Property>& environmentProperties);
+
+std::random_device rand_dev;
 
 int main()
 {
@@ -31,25 +34,44 @@ int main()
 	//Build population individuals, random generation handled in Individual contructor
 	for(int i = 0; i < NUM_INDIVIDUALS; i++)
 	{
-		population.push_back(Individual(environmentProperties));
+		population.push_back(Individual(environmentProperties, std::mt19937(rand_dev())));
 	}
 
-	//simulate NUM_MONTHS of transactions 
-	for (int i = 0; i < NUM_MONTHS; i++)
+	bool solutionFound = false;
+	int count = 0;
+	while(!solutionFound)
 	{
-		CalculateMonth(population);
+		//simulate NUM_MONTHS of transactions 
+		for (int i = 0; i < NUM_MONTHS; i++)
+		{
+			CalculateMonth(population);
+		}
+
+		//Calc fitness for all individuals
+		for(int i = 0; i < NUM_INDIVIDUALS; i++)
+		{
+			population[i].CalculateFitness();
+		}
+
+		std::sort(population.begin(), population.end());
+
+		if(abs(population[0].m_Fitness - population[NUM_INDIVIDUALS - 1].m_Fitness) < STARTING_FUNDS)
+		{
+			solutionFound = true;
+			break;
+		}
+
+		//evolve pop
+		EvolvePopulation(population, std::mt19937(rand_dev()));
+
+		//Initialize all the individuals for the next run
+		for(int i = 0; i < NUM_INDIVIDUALS; i++)
+		{
+			population[i].Initialize();
+		}
+
+		++count;
 	}
-
-	//Calc fitness for all individuals
-	for(int i = 0; i < NUM_INDIVIDUALS; i++)
-	{
-		population[i].CalculateFitness();
-	}
-
-	std::sort(population.begin(), population.end());
-
-	//evolve pop
-	EvolvePopulation(population);
 
 	return 0;
 }
@@ -60,40 +82,92 @@ void CalculateMonth(std::vector<Individual>& population)
 	std::vector<Individual>::iterator individual = population.begin();
 	for(individual; individual != population.end(); ++individual)
 	{
-		individual->CalculateMonth();
+		individual->CalculateMonth(std::mt19937(rand_dev()));
 	}
 }
 
 
-void EvolvePopulation(std::vector<Individual>& population)
+void EvolvePopulation(std::vector<Individual>& population, std::mt19937& generator)
 {
 	//cut the first lower half of the population
 	population.erase(population.begin(), population.begin() + NUM_INDIVIDUALS / 2);
 
 	for(int i = 0; i < NUM_INDIVIDUALS / 2; ++i)
 	{
-		EvolutionAction action = (EvolutionAction) GenerateRandom((int)MUTATE, (int)INVERT);
+		EvolutionAction action = (EvolutionAction) GenerateRandom((int)MUTATE, (int)SHUFFLE, generator);
 
-		switch(action)
+		//choose which element of the allocation will be mutated
+		int randomElement = GenerateRandom((int)MIN_FUNDS, (int)ALLOCATION, generator);
+		int randomIndex = GenerateRandom(0, population[i].m_Allocation.size() - 1, generator);
+
+		if(action == MUTATE)
 		{
-		case MUTATE:
-
-			break;
-		case SWAP:
-
-			break;
-      case INVERT:
-			
-			break;
+			if(randomElement == MIN_FUNDS)
+			{
+				population.push_back(Individual(GenerateRandom(0, STARTING_FUNDS, generator), population[i].m_AdditionalEmployees, population[i].m_Allocation));
+			}
+			else if(randomElement == ADDITIONAL_EMPLOYEES)
+			{
+				population.push_back(Individual(population[i].m_MinimumFunds, GenerateRandom(0, 10, generator), population[i].m_Allocation));
+			}
+			else
+			{
+				std::vector<std::pair<AllocationAction, Property>> tempAllocation = population[i].m_Allocation;
+			   tempAllocation[randomIndex].first = (AllocationAction)GenerateRandom((int)RENT, (int)RENOVATE, generator);
+				population.push_back(Individual(population[i].m_MinimumFunds, population[i].m_AdditionalEmployees, tempAllocation));
+			}
+		}
+		else if(action == SWAP)
+		{
+			if(randomElement == MIN_FUNDS)
+			{
+				if(i > 0)
+				{
+					//Insert a new Individual with a mix of two Individuals allocations
+					population.push_back(Individual(population[i - 1].m_MinimumFunds, population[i].m_AdditionalEmployees, population[i].m_Allocation));
+				}
+				else
+				{
+					//Insert a new Individual with a mix of two Individuals allocations
+					population.push_back(Individual(population[i + 1].m_MinimumFunds, population[i].m_AdditionalEmployees, population[i].m_Allocation));
+				}
+			}
+			else if(randomElement == ADDITIONAL_EMPLOYEES)
+			{
+				if(i > 0)
+				{
+					//Insert a new Individual with a mix of two Individuals allocations
+					population.push_back(Individual(population[i].m_MinimumFunds, population[i - 1].m_AdditionalEmployees, population[i].m_Allocation));
+				}
+				else
+				{
+					//Insert a new Individual with a mix of two Individuals allocations
+					population.push_back(Individual(population[i].m_MinimumFunds, population[i + 1].m_AdditionalEmployees, population[i].m_Allocation));
+				}
+			}
+			else
+			{
+				//Swap an allocation between 2 properties in the individual
+				int randomIndex2 = GenerateRandom(0, population[i].m_Allocation.size() - 1, generator);
+				std::vector<std::pair<AllocationAction, Property>> temp = population[i].m_Allocation;
+				AllocationAction tempAction = population[i].m_Allocation[randomIndex].first;
+				temp[randomIndex].first = temp[randomIndex2].first;
+				temp[randomIndex2].first = tempAction;
+				population.push_back(Individual(population[i].m_MinimumFunds, population[i].m_AdditionalEmployees, temp));
+			}
+		}
+		else
+		{
+			std::vector<std::pair<AllocationAction, Property>> tempToBeShuffled = population[i].m_Allocation;
+			std::shuffle(tempToBeShuffled.begin(), tempToBeShuffled.end(), generator);
+			population.push_back(Individual(population[i].m_MinimumFunds, population[i].m_AdditionalEmployees, tempToBeShuffled));
 		}
 	}
 }
 
 
-int GenerateRandom(int from, int to)
+int GenerateRandom(int from, int to, std::mt19937& generator)
 {
-	std::random_device rand_dev;
-	std::mt19937 generator(rand_dev());
 	std::uniform_int_distribution<int> distr(from, to);
 
 	return distr(generator);

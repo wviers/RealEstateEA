@@ -6,7 +6,7 @@
 #pragma once
 
 //define simulation constants
-const int NUM_INDIVIDUALS = 500;
+const int NUM_INDIVIDUALS = 300;
 const int NUM_MONTHS = 60;
 const int STARTING_FUNDS = 300000;
 const int STARTING_EMPLOYEES = 3;
