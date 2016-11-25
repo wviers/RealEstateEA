@@ -12,6 +12,10 @@
 
 #include <algorithm>
 #include <assert.h>
+#include <iostream>
+#include <fstream>
+#include <functional>
+#include <numeric> 
 #include <random>
 #include <vector>
 
@@ -37,9 +41,7 @@ int main()
 		population.push_back(Individual(environmentProperties, std::mt19937(rand_dev())));
 	}
 
-	bool solutionFound = false;
-	int count = 0;
-	while(!solutionFound)
+	for(int runs = 0; runs < NUM_GENERATIONS; ++runs)
 	{
 		//simulate NUM_MONTHS of transactions 
 		for (int i = 0; i < NUM_MONTHS; i++)
@@ -55,23 +57,59 @@ int main()
 
 		std::sort(population.begin(), population.end());
 
-		if(abs(population[0].m_Fitness - population[NUM_INDIVIDUALS - 1].m_Fitness) < STARTING_FUNDS)
-		{
-			solutionFound = true;
-			break;
-		}
+		std::ofstream genOut("generationData.txt");
 
-		//evolve pop
-		EvolvePopulation(population, std::mt19937(rand_dev()));
-
-		//Initialize all the individuals for the next run
+		//prepare output
+		std::vector<double> finesses;
 		for(int i = 0; i < NUM_INDIVIDUALS; i++)
 		{
-			population[i].Initialize();
+			finesses.push_back(population[i].m_Fitness);
 		}
 
-		++count;
+		double sum = std::accumulate(finesses.begin(), finesses.end(), 0.0);
+		double mean = sum / finesses.size();
+
+		genOut << "" << population[0].m_Fitness << "," << mean << "," << population[NUM_INDIVIDUALS - 1].m_Fitness << std::endl;
+
+
+		//don't evolve last run to preserve data
+		if(runs != NUM_GENERATIONS - 1)
+		{
+			//evolve pop
+			EvolvePopulation(population, std::mt19937(rand_dev()));
+
+			//Initialize all the individuals for the next run
+			for(int i = 0; i < NUM_INDIVIDUALS; i++)
+			{
+				population[i].Initialize();
+			}
+		}
+	
 	}
+
+	std::ofstream out("data.txt");
+
+	//calc standard deviation
+	std::vector<double> finesses;
+	for(int i = 0; i < NUM_INDIVIDUALS; i++)
+	{
+		finesses.push_back(population[i].m_Fitness);
+		out << "" << population[i].m_Fitness << "," << population[i].m_AdditionalEmployees << "," << population[i].m_MinimumFunds << std::endl;
+	}
+
+	double sum = std::accumulate(finesses.begin(), finesses.end(), 0.0);
+	double mean = sum / finesses.size();
+
+	std::vector<double> diff(finesses.size());
+
+	std::transform(finesses.begin(), finesses.end(), diff.begin(),
+		std::bind2nd(std::minus<double>(), mean));
+	double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
+	double stdev = std::sqrt(sq_sum / finesses.size());
+
+	double zScore = (population[NUM_INDIVIDUALS - 1].m_Fitness - mean) / stdev;
+
+	out << std::endl << zScore << std::endl;
 
 	return 0;
 }
@@ -108,7 +146,7 @@ void EvolvePopulation(std::vector<Individual>& population, std::mt19937& generat
 			}
 			else if(randomElement == ADDITIONAL_EMPLOYEES)
 			{
-				population.push_back(Individual(population[i].m_MinimumFunds, GenerateRandom(0, 10, generator), population[i].m_Allocation));
+				population.push_back(Individual(population[i].m_MinimumFunds, GenerateRandom(0, MAX_ADDITIONAL_EMPLOYEES, generator), population[i].m_Allocation));
 			}
 			else
 			{

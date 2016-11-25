@@ -16,7 +16,7 @@
 Individual::Individual(std::vector<Property> properties, std::mt19937 generator)
 {
 	m_MinimumFunds = GenerateRandom(0, STARTING_FUNDS, generator);
-	m_AdditionalEmployees = GenerateRandom(0, 10, generator);
+	m_AdditionalEmployees = GenerateRandom(0, MAX_ADDITIONAL_EMPLOYEES, generator);
 
 	//Define common starting company/individual variables
 	m_CurrentFunds = STARTING_FUNDS;
