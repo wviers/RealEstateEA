@@ -8,7 +8,7 @@
 //define simulation constants
 const int NUM_INDIVIDUALS = 300;
 const int NUM_MONTHS = 60;
-const int NUM_GENERATIONS = 100;
+const int NUM_GENERATIONS = 500;
 const int STARTING_FUNDS = 300000;
 const int STARTING_EMPLOYEES = 3;
 const int REALTOR_MONTLY_COST = 4000;

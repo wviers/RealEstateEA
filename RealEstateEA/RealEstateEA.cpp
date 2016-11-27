@@ -35,6 +35,8 @@ int main()
 
 	InitializeEnvironmentProperties(environmentProperties);
 
+	std::ofstream genOut("generationData.txt");
+
 	//Build population individuals, random generation handled in Individual contructor
 	for(int i = 0; i < NUM_INDIVIDUALS; i++)
 	{
@@ -56,8 +58,6 @@ int main()
 		}
 
 		std::sort(population.begin(), population.end());
-
-		std::ofstream genOut("generationData.txt");
 
 		//prepare output
 		std::vector<double> finesses;
